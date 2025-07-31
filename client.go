@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	goretry "github.com/avast/retry-go/v4"
 	"golang.org/x/net/proxy"
 )
 
@@ -988,7 +989,21 @@ func (client *client) tryRefreshMetadata(topics []string, attemptsRemaining int,
 		req.AllowAutoTopicCreation = allowAutoTopicCreation
 		atomic.StoreInt64(&client.updateMetadataMs, time.Now().UnixMilli())
 
-		response, err := broker.GetMetadata(req)
+		var response *MetadataResponse
+		err := goretry.Do(
+			func() error {
+				var innerRrr error
+				response, innerRrr = broker.GetMetadata(req)
+				if innerRrr != nil {
+					DebugLogger.Printf("client/metadata got error from broker %d while fetching metadata: %v, retrying again\n", broker.ID(), innerRrr)
+				}
+				return innerRrr
+			},
+			goretry.Attempts(uint(client.conf.Metadata.Retry.Max)),
+			goretry.Delay(client.conf.Metadata.Retry.Backoff),
+			goretry.MaxDelay(10*client.conf.Metadata.Retry.Backoff),
+			goretry.LastErrorOnly(true),
+		)
 		var kerror KError
 		var packetEncodingError PacketEncodingError
 		if err == nil {
