@@ -94,7 +94,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-      - github.com/IBM/sarama
+      - github.com/2uschauer/sarama
   exclusions:
     generated: lax
     paths:

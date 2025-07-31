@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/IBM/sarama"
+	"github.com/2uschauer/sarama"
 )
 
 // ErrorReporter is a simple interface that includes the testing.T methods we use to report

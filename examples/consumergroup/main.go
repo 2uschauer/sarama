@@ -12,7 +12,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/IBM/sarama"
+	"github.com/2uschauer/sarama"
 )
 
 // Sarama configuration options

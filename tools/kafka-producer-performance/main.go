@@ -15,8 +15,8 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 
-	"github.com/IBM/sarama"
-	"github.com/IBM/sarama/tools/tls"
+	"github.com/2uschauer/sarama"
+	"github.com/2uschauer/sarama/tools/tls"
 )
 
 var (
