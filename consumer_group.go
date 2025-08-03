@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	goretry "github.com/avast/retry-go/v4"
 	"github.com/rcrowley/go-metrics"
 )
 
@@ -293,12 +294,27 @@ func (c *consumerGroup) newSession(ctx context.Context, topics []string, handler
 		consumerGroupSyncFailed = metrics.GetOrRegisterCounter(fmt.Sprintf("consumer-group-sync-failed-%s", c.groupID), metricRegistry)
 	}
 
-	// Join consumer group
-	join, err := c.joinGroupRequest(coordinator, topics)
+	var join *JoinGroupResponse
+	err = goretry.Do(
+		func() error {
+			var innerRrr error
+			// Join consumer group
+			join, innerRrr = c.joinGroupRequest(coordinator, topics)
+			if innerRrr != nil {
+				DebugLogger.Printf("client/coordinator coordinator #%d (%s)failed to join group %s: %v, retrying again\n", coordinator.ID(), coordinator.Addr(), c.groupID, innerRrr)
+			}
+			return innerRrr
+		},
+		goretry.Attempts(uint(c.config.Consumer.Group.Rebalance.Retry.Backoff)),
+		goretry.Delay(c.config.Consumer.Group.Rebalance.Retry.Backoff),
+		goretry.MaxDelay(10*c.config.Consumer.Group.Rebalance.Retry.Backoff),
+		goretry.LastErrorOnly(true),
+	)
 	if consumerGroupJoinTotal != nil {
 		consumerGroupJoinTotal.Inc(1)
 	}
 	if err != nil {
+		DebugLogger.Printf("client/coordinator coordinator #%d (%s)failed to join group %s: %v\n", coordinator.ID(), coordinator.Addr(), c.groupID, err)
 		_ = coordinator.Close()
 		if consumerGroupJoinFailed != nil {
 			consumerGroupJoinFailed.Inc(1)
